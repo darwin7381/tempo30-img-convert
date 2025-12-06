@@ -1,0 +1,76 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+*.pyo
+*.pyd
+build/
+dist/
+wheels/
+*.egg-info
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Output files
+outputs/
+output/
+temp/
+tmp/
+
+# Style examples (if these are sample files)
+style_examples/
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Documentation (development process files)
+DIAGNOSIS_REPORT.md
+PROGRESS_FIX_V2.md
+COMPLETE_PROCESS_ANALYSIS.md
+CORRECT_DESIGN.md
+FASTAPI_MIGRATION_COMPLETE.md
+FINAL_FIX.md
+FINAL_IMPROVEMENTS.md
+FRONTEND_OPTIONS.md
+FRONTEND_SCALABILITY_ANALYSIS.md
+IMPROVEMENT_ANALYSIS.md
+IMPROVEMENTS_APPLIED.md
+ALTERNATIVES.md
+
+# UV package manager
+.uv/
+uv.lock
+
+# Selected images tracking
+selected_images.txt

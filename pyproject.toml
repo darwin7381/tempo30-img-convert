@@ -1,0 +1,26 @@
+[project]
+name = "tempo30-img-convert"
+version = "0.1.0"
+description = "圖片風格轉換工具 - 將照片轉換為向量插畫風格"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.123.9",
+    "google-genai>=1.53.0",
+    "google-generativeai>=0.8.5",
+    "gradio>=6.0.2",
+    "numpy>=2.3.5",
+    "onnxruntime>=1.23.2",
+    "pillow>=12.0.0",
+    "python-dotenv>=1.2.1",
+    "rembg>=2.0.69",
+    "requests>=2.32.5",
+    "scipy>=1.16.3",
+    "uvicorn>=0.38.0",
+    "websockets>=15.0.1",
+]
+
+[project.scripts]
+tempo30 = "main:main"
+tempo30-gradio = "app:main"
+tempo30-multistyle = "app_multistyle:main"

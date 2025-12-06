@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片風格轉換工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px 20px 80px 20px; /* 底部留空給進度條 */
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            color: #a0a0a0;
+            font-size: 1.1rem;
+        }
+        
+        /* 總體進度條 - 固定在底部 */
+        .overall-progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(20, 20, 30, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            gap: 20px;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .progress-label {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+            min-width: 100px;
+        }
+        
+        .overall-progress {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .overall-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.6);
+        }
+        
+        .overall-progress-text {
+            font-size: 1rem;
+            color: #00f2fe;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: right;
+        }
+        
+        /* 主容器 */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* 左側：上傳區 */
+        .left-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .upload-area {
+            border: 3px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+            position: relative;
+            height: 450px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .upload-area.drag-over {
+            border-color: #00f2fe;
+            background: rgba(0, 242, 254, 0.1);
+        }
+        
+        #preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .upload-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+            width: 100%;
+        }
+        
+        .upload-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .upload-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* 右側：結果區 */
+        .right-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        /* 圖片容器（帶狀態疊加） */
+        .image-container {
+            position: relative;
+            background: repeating-conic-gradient(#2a2a2a 0% 25%, #1a1a1a 0% 50%) 50% / 20px 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #result-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        
+        /* 狀態疊加層（在圖片內部） */
+        .status-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 15px;
+            font-size: 1rem;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+        
+        /* 處理步驟詳情 */
+        .steps-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #00f2fe;
+        }
+        
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .step {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s;
+        }
+        
+        .step.pending {
+            opacity: 0.5;
+            border-left-color: #555;
+        }
+        
+        .step.active {
+            border-left-color: #00f2fe;
+            background: rgba(0, 242, 254, 0.15);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
+        }
+        
+        .step.completed {
+            border-left-color: #4caf50;
+            opacity: 0.8;
+        }
+        
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        .step-name {
+            font-size: 1rem;
+        }
+        
+        .step-percentage {
+            font-size: 0.9rem;
+            color: #00f2fe;
+        }
+        
+        .step-message {
+            font-size: 0.9rem;
+            color: #c0c0c0;
+            margin-top: 5px;
+        }
+        
+        /* 子步驟 */
+        .substeps {
+            margin-top: 10px;
+            padding-left: 20px;
+            border-left: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .substep {
+            padding: 8px 0;
+            font-size: 0.85rem;
+            color: #b0b0b0;
+        }
+        
+        .substep.active {
+            color: #00f2fe;
+            font-weight: bold;
+        }
+        
+        .substep.completed {
+            color: #4caf50;
+        }
+        
+        /* 步驟內進度條 */
+        .step-progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .step-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            transition: width 0.3s ease;
+        }
+        
+        /* 響應式 */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* 載入動畫 */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎨 圖片風格轉換工具</h1>
+        <p class="subtitle">將人物照片轉換為向量插畫風格：半寫實企業頭像 + 透明背景</p>
+    </div>
+    
+    
+    <div class="container">
+        <!-- 左側：上傳區 -->
+        <div class="left-panel">
+            <h2 style="margin-bottom: 20px;">📤 上傳圖片</h2>
+            
+            <div class="upload-area" id="upload-area">
+                <div id="upload-placeholder">
+                    <div style="font-size: 3rem; margin-bottom: 10px;">📁</div>
+                    <p style="font-size: 1.1rem; margin-bottom: 10px;">點擊或拖放圖片到此處</p>
+                    <p style="font-size: 0.9rem; color: #888;">支持 JPG, PNG 格式</p>
+                </div>
+                <img id="preview-image" style="display: none;">
+                <!-- 清除按鈕（固定在外框右上角） -->
+                <button id="clear-image-btn" class="clear-image-button" onclick="clearImage(event)">✕</button>
+                <input type="file" id="file-input" accept="image/*" style="display: none;">
+            </div>
+            
+            <button class="upload-button" id="process-button" disabled>
+                🚀 開始轉換
+            </button>
+        </div>
+        
+        <!-- 右側：結果和步驟 -->
+        <div class="right-panel">
+            <h2 style="margin-bottom: 20px;">🖼️ 處理結果</h2>
+            
+            <!-- 圖片容器（狀態疊加在內部） -->
+            <div class="image-container">
+                <img id="result-image" src="" alt="處理結果" style="display: none;">
+                <div style="color: #666; font-size: 1.2rem;" id="empty-state">
+                    等待上傳圖片...
+                </div>
+                
+                <!-- 狀態疊加層（在圖片內部） -->
+                <div class="status-overlay" id="status-overlay" style="display: none;">
+                    等待開始...
+                </div>
+                
+                <!-- 下載按鈕（在圖片右上角） -->
+                <div id="download-area" style="position: absolute; top: 15px; right: 15px; display: none; gap: 10px;">
+                    <button onclick="downloadImage()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: transform 0.2s;">
+                        📥 下載
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 處理步驟詳情 -->
+            <div class="steps-title">📋 處理步驟詳情</div>
+            <div class="steps-container" id="steps-container">
+                <!-- 步驟會動態創建 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 總體進度條 - 固定在底部 -->
+    <div class="overall-progress-bar">
+        <div class="progress-label">📊 總體進度</div>
+        <div class="overall-progress">
+            <div class="overall-progress-fill" id="overall-progress" style="width: 0%"></div>
+        </div>
+        <div class="overall-progress-text" id="overall-progress-text">0%</div>
+    </div>
+    
+    <script>
+        let ws = null;
+        let currentImage = null;
+        
+        // 初始化上傳區域
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const previewImage = document.getElementById('preview-image');
+        const processButton = document.getElementById('process-button');
+        
+        uploadArea.addEventListener('click', (e) => {
+            // 避免在點擊預覽圖片或清除按鈕時觸發
+            if (e.target === uploadArea || e.target === document.getElementById('upload-placeholder')) {
+                fileInput.click();
+            }
+        });
+        
+        // 文件選擇
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            console.log('文件選擇:', file ? file.name : '無');
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    currentImage = e.target.result;
+                    console.log('✅ 圖片已讀取，長度:', currentImage.length);
+                    
+                    // 在上傳區域顯示預覽
+                    previewImage.src = currentImage;
+                    previewImage.style.display = 'block';
+                    document.getElementById('upload-placeholder').style.display = 'none';
+                    document.getElementById('clear-image-btn').classList.add('show');
+                    
+                    // 啟用按鈕
+                    console.log('按鈕啟用前:', processButton.disabled);
+                    processButton.disabled = false;
+                    console.log('按鈕啟用後:', processButton.disabled);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // 清除圖片
+        function clearImage(event) {
+            if (event) event.stopPropagation(); // 防止觸發上傳區域的點擊事件
+            currentImage = null;
+            previewImage.src = '';
+            previewImage.style.display = 'none';
+            document.getElementById('upload-placeholder').style.display = 'block';
+            document.getElementById('clear-image-btn').classList.remove('show');
+            fileInput.value = '';
+            processButton.disabled = true;
+            console.log('圖片已清除，按鈕已禁用');
+            
+            // 清空結果區
+            document.getElementById('result-image').style.display = 'none';
+            document.getElementById('empty-state').style.display = 'block';
+            document.getElementById('status-overlay').style.display = 'none';
+            document.getElementById('download-area').style.display = 'none';
+        }
+        
+        // 下載圖片
+        function downloadImage() {
+            const img = document.getElementById('result-image');
+            if (img.src) {
+                const link = document.createElement('a');
+                link.href = img.src;
+                link.download = 'result_' + Date.now() + '.png';
+                link.click();
+            }
+        }
+        
+        // 拖放上傳
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    currentImage = e.target.result;
+                    // 在上傳區域顯示預覽
+                    previewImage.src = currentImage;
+                    previewImage.style.display = 'block';
+                    document.getElementById('upload-placeholder').style.display = 'none';
+                    document.getElementById('clear-image-btn').style.display = 'block';
+                    processButton.disabled = false;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // 開始處理
+        processButton.addEventListener('click', startProcessing);
+        
+        function startProcessing() {
+            if (!currentImage) return;
+            
+            processButton.disabled = true;
+            processButton.textContent = '⏳ 處理中...';
+            
+            // 清空步驟容器
+            document.getElementById('steps-container').innerHTML = '';
+            
+            // 連接 WebSocket（自動使用當前頁面的端口）
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/process`;
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ image: currentImage }));
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+            
+            ws.onclose = () => {
+                processButton.disabled = false;
+                processButton.textContent = '🚀 開始轉換';
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket 錯誤:', error);
+                alert('連接錯誤，請重試');
+                processButton.disabled = false;
+                processButton.textContent = '🚀 開始轉換';
+            };
+        }
+        
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'image':
+                    updateImage(data.image, data.message);
+                    break;
+                case 'step_start':
+                    createStep(data.step_id, data.step_name, data.substeps);
+                    updateStep(data.step_id, 'active', data.step_progress, data.message);
+                    updateOverallProgress(data.overall_progress);
+                    updateStatusOverlay(data.message);
+                    break;
+                case 'step_update':
+                    updateStep(data.step_id, 'active', data.step_progress, data.message);
+                    updateOverallProgress(data.overall_progress);
+                    updateStatusOverlay(data.message);
+                    break;
+                case 'step_complete':
+                    updateStep(data.step_id, 'completed', 100, data.message);
+                    updateOverallProgress(data.overall_progress);
+                    updateStatusOverlay(data.message);
+                    if (data.image) updateImage(data.image, data.message);
+                    break;
+                case 'substep_start':
+                case 'substep_update':
+                    updateSubstep(data.step_id, data.substep_id, 'active', data.message);
+                    updateStep(data.step_id, 'active', data.step_progress, data.message);
+                    updateOverallProgress(data.overall_progress);
+                    updateStatusOverlay(data.message);
+                    break;
+                case 'substep_complete':
+                    updateSubstep(data.step_id, data.substep_id, 'completed', data.message);
+                    updateStep(data.step_id, 'active', data.step_progress, data.message);
+                    updateOverallProgress(data.overall_progress);
+                    if (data.image) updateImage(data.image, data.message);
+                    updateStatusOverlay(data.message);
+                    break;
+                case 'complete':
+                    updateImage(data.image, data.message);
+                    updateStatusOverlay(data.message);
+                    updateOverallProgress(100);
+                    document.getElementById('download-area').style.display = 'block';
+                    processButton.disabled = false;
+                    processButton.textContent = '✅ 處理完成';
+                    setTimeout(() => {
+                        processButton.textContent = '🚀 重新轉換';
+                    }, 2000);
+                    break;
+                case 'error':
+                    alert('處理失敗: ' + data.message);
+                    updateStatusOverlay('❌ ' + data.message);
+                    processButton.disabled = false;
+                    processButton.textContent = '🚀 開始轉換';
+                    break;
+            }
+        }
+        
+        function createStep(stepId, stepName, substeps) {
+            const container = document.getElementById('steps-container');
+            
+            if (!document.getElementById(`step-${stepId}`)) {
+                const stepDiv = document.createElement('div');
+                stepDiv.id = `step-${stepId}`;
+                stepDiv.className = 'step pending';
+                stepDiv.innerHTML = `
+                    <div class="step-header">
+                        <span class="step-name">⚪ 步驟 ${stepId}: ${stepName}</span>
+                        <span class="step-percentage">0%</span>
+                    </div>
+                    <div class="step-progress-bar">
+                        <div class="step-progress-fill" id="progress-${stepId}" style="width: 0%"></div>
+                    </div>
+                    <div class="step-message" id="message-${stepId}">等待中...</div>
+                    <div class="substeps" id="substeps-${stepId}"></div>
+                `;
+                container.appendChild(stepDiv);
+                
+                // 創建子步驟
+                if (substeps && substeps.length > 0) {
+                    const substepsContainer = document.getElementById(`substeps-${stepId}`);
+                    substeps.forEach((substep, index) => {
+                        const substepDiv = document.createElement('div');
+                        substepDiv.id = `substep-${stepId}-${index + 1}`;
+                        substepDiv.className = 'substep pending';
+                        substepDiv.textContent = `⚪ ${stepId}.${index + 1} ${substep}`;
+                        substepsContainer.appendChild(substepDiv);
+                    });
+                }
+            }
+        }
+        
+        function updateStep(stepId, status, progress, message) {
+            const stepDiv = document.getElementById(`step-${stepId}`);
+            if (!stepDiv) return;
+            
+            stepDiv.className = `step ${status}`;
+            
+            const icon = status === 'completed' ? '✅' : status === 'active' ? '⏳' : '⚪';
+            const nameEl = stepDiv.querySelector('.step-name');
+            const originalName = nameEl.textContent.split(':')[1] || nameEl.textContent;
+            nameEl.textContent = `${icon} 步驟 ${stepId}:${originalName}`;
+            
+            stepDiv.querySelector('.step-percentage').textContent = Math.round(progress) + '%';
+            stepDiv.querySelector(`#progress-${stepId}`).style.width = progress + '%';
+            stepDiv.querySelector(`#message-${stepId}`).textContent = message;
+        }
+        
+        function updateSubstep(stepId, substepId, status, message) {
+            const substepDiv = document.getElementById(`substep-${stepId}-${substepId}`);
+            if (!substepDiv) return;
+            
+            substepDiv.className = `substep ${status}`;
+            const icon = status === 'completed' ? '✅' : status === 'active' ? '⏳' : '⚪';
+            const text = substepDiv.textContent.split(' ').slice(1).join(' ');
+            substepDiv.textContent = `${icon} ${text}`;
+        }
+        
+        function updateImage(imageData, message) {
+            const imgEl = document.getElementById('result-image');
+            const emptyState = document.getElementById('empty-state');
+            imgEl.src = imageData;
+            imgEl.style.display = 'block';
+            emptyState.style.display = 'none';
+            
+            const overlay = document.getElementById('status-overlay');
+            overlay.style.display = 'block';
+        }
+        
+        function updateStatusOverlay(message) {
+            document.getElementById('status-overlay').textContent = message;
+        }
+        
+        function updateOverallProgress(progress) {
+            const progressFill = document.getElementById('overall-progress');
+            const progressText = document.getElementById('overall-progress-text');
+            const percentage = Math.round(progress);
+            progressFill.style.width = percentage + '%';
+            progressText.textContent = `總體進度：${percentage}%`;
+        }
+    </script>
+</body>
+</html>
+
