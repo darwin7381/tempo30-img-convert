@@ -2,21 +2,14 @@
 """
 圖片風格轉換工具 - FastAPI + WebSocket 版本
 
-現代化、美觀的前端界面，完全符合需求：
-- 動態步驟顯示（6-7步根據圖片類型）
-- 子步驟顯示（3.1, 3.2, 3.3等）
-- 狀態真正疊加在圖片上（CSS overlay）
-- 流暢的進度動畫
-- 無橘色閃爍
+完整顯示所有處理步驟（照片7步/插畫6步）
 """
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 from PIL import Image
 import base64
 import io
-import json
 import asyncio
 from pathlib import Path
 
@@ -27,14 +20,12 @@ from src.style_converter import StyleConverter
 
 app = FastAPI(title="圖片風格轉換工具")
 
-# 初始化處理器
 gemini_client = None
 image_processor = ImageProcessor()
 style_converter = StyleConverter()
 
 
 def get_gemini_client():
-    """延遲初始化 Gemini 客戶端"""
     global gemini_client
     if gemini_client is None:
         gemini_client = GeminiClient()
@@ -42,35 +33,29 @@ def get_gemini_client():
 
 
 def image_to_base64(image: Image.Image) -> str:
-    """將 PIL Image 轉為 base64 字符串"""
     buffered = io.BytesIO()
     image.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    return f"data:image/png;base64,{img_str}"
+    return f"data:image/png;base64,{base64.b64encode(buffered.getvalue()).decode()}"
 
 
 async def send_progress(websocket: WebSocket, data: dict):
-    """發送進度更新"""
     await websocket.send_json(data)
-    await asyncio.sleep(0.05)  # 確保前端有時間更新
+    await asyncio.sleep(0.03)
 
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
-    """返回主頁面"""
     html_path = Path(__file__).parent / "templates" / "index.html"
     return FileResponse(html_path)
 
 
 @app.websocket("/ws/process")
 async def process_image_websocket(websocket: WebSocket):
-    """WebSocket 端點：處理圖片"""
     await websocket.accept()
     
     try:
-        # 接收圖片數據
         data = await websocket.receive_json()
-        image_base64 = data['image'].split(',')[1]  # 移除 data:image/png;base64,
+        image_base64 = data['image'].split(',')[1]
         image_bytes = base64.b64decode(image_base64)
         image = Image.open(io.BytesIO(image_bytes))
         
@@ -78,100 +63,117 @@ async def process_image_websocket(websocket: WebSocket):
         await send_progress(websocket, {
             'type': 'image',
             'image': image_to_base64(image),
-            'message': '圖片已上傳'
+            'message': f'圖片已上傳 | 尺寸: {image.width}x{image.height} | 模式: {image.mode}'
         })
         
-        # ========== 步驟 1: 分析圖片類型（佔總進度 5%） ==========
+        # ========== 步驟 1: 檢測圖片類型+身體範圍（AI，合併檢測）==========
         await send_progress(websocket, {
             'type': 'step_start',
             'step_id': 1,
-            'step_name': '分析圖片類型',
+            'step_name': '檢測圖片類型+身體範圍',
             'step_progress': 0,
             'overall_progress': 0,
-            'message': '🔍 正在調用 Gemini AI 分析...',
-            'substeps': ['調用 Gemini AI', '解析分析結果']
+            'substeps': ['調用 Gemini AI', '解析圖片類型', '解析身體範圍']
         })
         
-        # 子步驟 1.1: 調用 AI
+        # 1.1 調用 AI
         await send_progress(websocket, {
             'type': 'substep_start',
             'step_id': 1,
             'substep_id': 1,
-            'step_progress': 0,
             'overall_progress': 0,
-            'message': f'🤖 調用 Gemini 2.0 Flash | 圖片尺寸: {image.width}x{image.height} | 模式: {image.mode}'
+            'message': f'🤖 調用 Gemini 2.0 Flash | 輸入: {image.width}x{image.height}'
         })
         
-        for pct in range(0, 81, 20):
+        for pct in range(0, 71, 10):
             await send_progress(websocket, {
                 'type': 'substep_update',
                 'step_id': 1,
                 'substep_id': 1,
                 'step_progress': pct,
-                'overall_progress': pct * 0.04,
-                'message': f'🤖 Gemini AI 分析中... {pct}%'
+                'overall_progress': pct * 0.03,
+                'message': f'🤖 AI 分析圖片（類型+身體範圍）... {pct}%'
             })
         
-        # 實際 AI 調用
-        client = get_gemini_client()
-        image_type = client.analyze_image_type(image)
-        type_name = "真人照片" if image_type == ImageType.REAL_PHOTO else "像素插畫"
+        # 實際調用（合併檢測）
+        analysis = style_converter.analyze_image(image)
+        image_type = analysis["image_type"]
+        body_extent = analysis["body_extent"]
+        type_name = "真人照片" if image_type == "photo" else "像素插畫"
+        is_photo = (image_type == "photo")
         
+        # 1.2 解析類型
         await send_progress(websocket, {
             'type': 'substep_complete',
             'step_id': 1,
             'substep_id': 1,
-            'step_progress': 80,
-            'overall_progress': 4,
-            'message': '✅ AI 分析完成'
+            'step_progress': 70,
+            'overall_progress': 2.1,
+            'message': '✅ AI 調用完成'
         })
         
-        # 子步驟 1.2: 解析結果
         await send_progress(websocket, {
             'type': 'substep_start',
             'step_id': 1,
             'substep_id': 2,
-            'step_progress': 80,
-            'overall_progress': 4,
-            'message': '📊 解析分析結果...'
+            'step_progress': 70,
+            'overall_progress': 2.1,
+            'message': '📊 解析圖片類型...'
         })
+        
+        await send_progress(websocket, {
+            'type': 'substep_complete',
+            'step_id': 1,
+            'substep_id': 2,
+            'step_progress': 85,
+            'overall_progress': 3,
+            'message': f'✅ 解析結果：{type_name} ({"PHOTO" if is_photo else "ILLUSTRATION"})'
+        })
+        
+        # 1.3 解析身體範圍
+        await send_progress(websocket, {
+            'type': 'substep_start',
+            'step_id': 1,
+            'substep_id': 3,
+            'step_progress': 85,
+            'overall_progress': 3,
+            'message': '📊 解析身體範圍...'
+        })
+        
+        body_desc = {
+            "head_only": "僅頭部",
+            "head_neck": "頭部+脖子",
+            "head_chest": "頭部到上胸部（理想）",
+            "full_body": "全身照"
+        }.get(body_extent, body_extent)
         
         await send_progress(websocket, {
             'type': 'step_complete',
             'step_id': 1,
             'step_progress': 100,
-            'overall_progress': 5,
-            'message': f'✅ 分析完成：{type_name} | API: Gemini 2.0 Flash | 耗時: ~3秒'
+            'overall_progress': 4,
+            'message': f'✅ 步驟1完成 | 圖片類型: {type_name} | 身體範圍: {body_desc} ({body_extent.upper()}) | API: Gemini 2.0 Flash'
         })
         
-        # ========== 步驟 2: 圖片預處理（佔總進度 10%） ==========
-        is_photo = (image_type == ImageType.REAL_PHOTO)
-        process_desc = "移除背景" if is_photo else "處理圖片格式"
-        
+        # ========== 步驟 2: 圖片預處理 ==========
         if is_photo:
-            substeps = ['使用 rembg 去背', '裁切平整底部']
-        else:
-            substeps = ['轉換為 RGBA 格式']
-        
-        await send_progress(websocket, {
-            'type': 'step_start',
-            'step_id': 2,
-            'step_name': f'圖片預處理（{process_desc}）',
-            'step_progress': 0,
-            'overall_progress': 5,
-            'message': f'✂️ 正在{process_desc}...',
-            'substeps': substeps
-        })
-        
-        if is_photo:
-            # 子步驟 2.1: 去背
+            # 照片：去背 + 裁切
+            await send_progress(websocket, {
+                'type': 'step_start',
+                'step_id': 2,
+                'step_name': '圖片預處理（去背）',
+                'step_progress': 0,
+                'overall_progress': 4,
+                'substeps': ['rembg 去背', '裁切平整底部']
+            })
+            
+            # 2.1 去背
             await send_progress(websocket, {
                 'type': 'substep_start',
                 'step_id': 2,
                 'substep_id': 1,
-                'step_progress': 0,
-                'overall_progress': 5,
-                'message': f'🔧 使用 rembg 去背 | 輸入: {image.width}x{image.height} | 模型: u2net'
+                'overall_progress': 4,
+                'message': f'✂️ 使用 rembg 去背 | 模型: u2net | 輸入: {image.width}x{image.height}'
             })
             
             for pct in range(0, 81, 10):
@@ -180,248 +182,340 @@ async def process_image_websocket(websocket: WebSocket):
                     'step_id': 2,
                     'substep_id': 1,
                     'step_progress': pct,
-                    'overall_progress': 5 + pct * 0.07,
-                    'message': f'✂️ 去背處理中... {pct}%'
+                    'overall_progress': 4 + pct * 0.08,
+                    'message': f'✂️ 去背處理中（rembg deep learning）... {pct}%'
                 })
             
-            # 子步驟 2.2: 裁切
+            # 2.2 裁切
             await send_progress(websocket, {
                 'type': 'substep_start',
                 'step_id': 2,
                 'substep_id': 2,
                 'step_progress': 80,
+                'overall_progress': 10.4,
+                'message': '📐 裁切平整底部 | 方法: numpy alpha分析'
+            })
+            
+            processed = image_processor.process_image(image, ImageType.REAL_PHOTO)
+            
+            await send_progress(websocket, {
+                'type': 'step_complete',
+                'step_id': 2,
+                'step_progress': 100,
                 'overall_progress': 12,
-                'message': '📐 裁切平整底部...'
+                'message': f'✅ 預處理完成 | 輸出: {processed.width}x{processed.height} | 已去背',
+                'image': image_to_base64(processed)
+            })
+        else:
+            # 插畫：只轉格式
+            await send_progress(websocket, {
+                'type': 'step_start',
+                'step_id': 2,
+                'step_name': '格式轉換',
+                'step_progress': 0,
+                'overall_progress': 4,
+                'substeps': ['轉換為 RGBA']
+            })
+            
+            await send_progress(websocket, {
+                'type': 'substep_start',
+                'step_id': 2,
+                'substep_id': 1,
+                'overall_progress': 4,
+                'message': '🔧 轉換圖片格式為 RGBA...'
+            })
+            
+            processed = image_processor.process_image(image, ImageType.PIXEL_ART)
+            
+            await send_progress(websocket, {
+                'type': 'step_complete',
+                'step_id': 2,
+                'step_progress': 100,
+                'overall_progress': 6,
+                'message': f'✅ 格式轉換完成 | 模式: {processed.mode}'
             })
         
-        processed = image_processor.process_image(image, image_type)
-        
-        await send_progress(websocket, {
-            'type': 'step_complete',
-            'step_id': 2,
-            'step_progress': 100,
-            'overall_progress': 15,
-            'message': f'✅ 預處理完成 | 輸出: {processed.width}x{processed.height} | 模式: {processed.mode} | 是否去背: {"是" if is_photo else "否"}',
-            'image': image_to_base64(processed)
-        })
-        
-        # ========== 步驟 3: AI 風格轉換（佔總進度 75%，最耗時） ==========
+        # ========== 步驟 3: 生成 Body Instruction ==========
         await send_progress(websocket, {
             'type': 'step_start',
             'step_id': 3,
-            'step_name': 'AI 風格轉換（最耗時）',
+            'step_name': '生成處理指令',
             'step_progress': 0,
-            'overall_progress': 15,
-            'message': '🤖 AI 風格轉換開始...',
-            'substeps': ['分析身體範圍', 'AI 生成向量插畫', '處理透明背景']
+            'overall_progress': 12 if is_photo else 6,
+            'substeps': ['查找對應指令模板']
         })
         
-        # 子步驟 3.1: 分析身體範圍（佔步驟3的10%）
+        instruction_type = {
+            "full_body": "裁切全身到上胸部",
+            "head_only": "生成脖子、肩膀、上胸部",
+            "head_neck": "生成肩膀和上胸部",
+            "head_chest": "保持當前構圖"
+        }.get(body_extent, "預設處理")
+        
         await send_progress(websocket, {
             'type': 'substep_start',
             'step_id': 3,
             'substep_id': 1,
-            'step_progress': 0,
-            'overall_progress': 15,
-            'message': f'🔍 AI 分析身體部位範圍 | API: Gemini 2.0 Flash | 輸入: {processed.width}x{processed.height}'
+            'overall_progress': 12 if is_photo else 6,
+            'message': f'📝 生成 Body Instruction | 身體範圍: {body_desc} | 指令類型: {instruction_type}'
         })
-        
-        for pct in range(0, 101, 15):
-            await send_progress(websocket, {
-                'type': 'substep_update',
-                'step_id': 3,
-                'substep_id': 1,
-                'step_progress': pct * 0.1,
-                'overall_progress': 15 + pct * 0.075,
-                'message': f'🔍 分析頭部、脖子、胸部範圍... {pct}%'
-            })
         
         await send_progress(websocket, {
-            'type': 'substep_complete',
+            'type': 'step_complete',
             'step_id': 3,
-            'substep_id': 1,
-            'step_progress': 10,
-            'overall_progress': 22.5,
-            'message': '✅ 身體範圍分析完成'
+            'step_progress': 100,
+            'overall_progress': 13 if is_photo else 7,
+            'message': f'✅ 步驟3完成 | 指令類型: {instruction_type} | Body Extent: {body_extent} | 來源: BODY_INSTRUCTIONS字典'
         })
         
-        # 子步驟 3.2: AI 生成向量插畫（佔步驟3的80%，超級耗時！）
+        # ========== 步驟 4: 構建完整 Prompt ==========
+        await send_progress(websocket, {
+            'type': 'step_start',
+            'step_id': 4,
+            'step_name': '構建 AI Prompt',
+            'step_progress': 0,
+            'overall_progress': 13 if is_photo else 7,
+            'substeps': ['組合風格要求']
+        })
+        
         await send_progress(websocket, {
             'type': 'substep_start',
-            'step_id': 3,
-            'substep_id': 2,
-            'step_progress': 10,
-            'overall_progress': 22.5,
-            'message': '🎨 調用 Gemini 3 Pro Image | 風格: 向量插畫+賽璐璐著色 | 預計: 15-30秒'
+            'step_id': 4,
+            'substep_id': 1,
+            'overall_progress': 13 if is_photo else 7,
+            'message': '📋 組合 Prompt | Body Instruction + Style Requirements + Rim Lighting + Constraints'
         })
         
-        # 初期：調用階段（0-20%）
+        await send_progress(websocket, {
+            'type': 'step_complete',
+            'step_id': 4,
+            'step_progress': 100,
+            'overall_progress': 14 if is_photo else 8,
+            'message': f'✅ 步驟4完成 | Prompt長度: ~600字 | 包含: Body Instruction + Style要求 + Rim Lighting + 限制條件 | 目標: Gemini 3 Pro Image'
+        })
+        
+        # ========== 步驟 5: AI 生成向量插畫（最耗時！）==========
+        await send_progress(websocket, {
+            'type': 'step_start',
+            'step_id': 5,
+            'step_name': 'AI 生成向量插畫（最耗時）',
+            'step_progress': 0,
+            'overall_progress': 14 if is_photo else 8,
+            'substeps': ['調用 Gemini 3 Pro', '等待 AI 生成', '提取圖片結果']
+        })
+        
+        # 5.1 調用 AI
+        await send_progress(websocket, {
+            'type': 'substep_start',
+            'step_id': 5,
+            'substep_id': 1,
+            'overall_progress': 14 if is_photo else 8,
+            'message': f'🤖 調用 Gemini 3 Pro Image | Prompt: {instruction_type} | 預計: 15-30秒'
+        })
+        
         for pct in range(0, 21, 5):
             await send_progress(websocket, {
                 'type': 'substep_update',
-                'step_id': 3,
-                'substep_id': 2,
-                'step_progress': 10 + pct * 0.8,
-                'overall_progress': 22.5 + pct * 0.6,
-                'message': f'🤖 調用 Gemini 3 Pro Image 模型... {pct}%'
+                'step_id': 5,
+                'substep_id': 1,
+                'step_progress': pct,
+                'overall_progress': (14 if is_photo else 8) + pct * 0.05,
+                'message': f'🤖 發送 Prompt 到 Gemini 3 Pro Image... {pct}%'
             })
-            await asyncio.sleep(0.2)
         
-        # 中期：生成階段（20-70%）
-        for pct in range(20, 71, 3):
-            msg = ''
+        # 5.2 等待 AI 生成
+        await send_progress(websocket, {
+            'type': 'substep_start',
+            'step_id': 5,
+            'substep_id': 2,
+            'step_progress': 20,
+            'overall_progress': (15 if is_photo else 9),
+            'message': '🎨 AI 正在生成中（這是最耗時的步驟）...'
+        })
+        
+        # 細分 AI 生成過程
+        for pct in range(20, 91, 3):
             if pct < 35:
-                msg = f'🎨 AI 正在生成向量插畫風格... {pct}%'
+                msg = f'🎨 AI 生成向量插畫風格 | 進度: {pct}%'
             elif pct < 55:
-                msg = f'🖼️ 套用半寫實企業頭像風格... {pct}%'
+                msg = f'🖼️ 套用半寫實企業頭像風格 | 進度: {pct}%'
+            elif pct < 75:
+                msg = f'✨ 套用賽璐璐著色（cel-shaded）| 進度: {pct}%'
             else:
-                msg = f'✨ 套用賽璐璐著色（cel-shaded）... {pct}%'
+                msg = f'🌟 套用橘色/金色邊緣高光 | 進度: {pct}%'
             
             await send_progress(websocket, {
                 'type': 'substep_update',
-                'step_id': 3,
+                'step_id': 5,
                 'substep_id': 2,
-                'step_progress': 10 + pct * 0.8,
-                'overall_progress': 22.5 + pct * 0.6,
+                'step_progress': pct,
+                'overall_progress': (15 if is_photo else 9) + (pct - 20) * 0.6,
                 'message': msg
             })
             await asyncio.sleep(0.15)
         
-        # 後期：細節處理（70-100%）
-        for pct in range(70, 101, 2):
-            msg = f'🌟 套用橘色/金色邊緣高光效果... {pct}%'
-            await send_progress(websocket, {
-                'type': 'substep_update',
-                'step_id': 3,
-                'substep_id': 2,
-                'step_progress': 10 + pct * 0.8,
-                'overall_progress': 22.5 + pct * 0.6,
-                'message': msg
-            })
-            await asyncio.sleep(0.12)
+        # 實際調用（這裡會花費大部分時間）
+        # apply_style 內部會再次分析，但我們已經有結果了
+        result = style_converter.convert_to_cartoon_illustration(processed, body_extent=body_extent)
         
-        # 實際 AI 調用
-        result = style_converter.apply_style(processed, transparent_bg=True)
+        # 5.3 提取圖片
+        await send_progress(websocket, {
+            'type': 'substep_start',
+            'step_id': 5,
+            'substep_id': 3,
+            'step_progress': 90,
+            'overall_progress': (57 if is_photo else 51),
+            'message': '📦 提取 AI 生成的圖片...'
+        })
         
         await send_progress(websocket, {
-            'type': 'substep_complete',
-            'step_id': 3,
-            'substep_id': 2,
-            'step_progress': 90,
-            'overall_progress': 82.5,
-            'message': f'✅ AI 生成完成 | 輸出: {result.width}x{result.height} | 風格: 半寫實+賽璐璐+高光',
+            'type': 'step_complete',
+            'step_id': 5,
+            'step_progress': 100,
+            'overall_progress': (58 if is_photo else 52),
+            'message': f'✅ 步驟5完成 | AI生成結果: {result.width}x{result.height} | 風格特徵: 向量插畫+半寫實+賽璐璐著色+橘色高光 | 背景: 白色 | 模型: Gemini 3 Pro Image',
             'image': image_to_base64(result)
         })
         
-        # 子步驟 3.3: 處理透明背景（佔步驟3的10%）
-        await send_progress(websocket, {
-            'type': 'substep_start',
-            'step_id': 3,
-            'substep_id': 3,
-            'step_progress': 90,
-            'overall_progress': 82.5,
-            'message': f'🎭 處理透明背景 | 方法: numpy連通區域分析 | 閾值: 240'
-        })
-        
-        for pct in range(0, 101, 25):
-            await send_progress(websocket, {
-                'type': 'substep_update',
-                'step_id': 3,
-                'substep_id': 3,
-                'step_progress': 90 + pct * 0.1,
-                'overall_progress': 82.5 + pct * 0.075,
-                'message': f'🎭 numpy 連通區域分析... {pct}%'
-            })
-        
-        await send_progress(websocket, {
-            'type': 'step_complete',
-            'step_id': 3,
-            'step_progress': 100,
-            'overall_progress': 90,
-            'message': '✅ AI 風格轉換完成'
-        })
-        
-        # ========== 步驟 4: 最終處理（佔總進度 10%） ==========
-        if is_photo:
-            substeps = ['統一尺寸和位置', '水平底部裁切']
-        else:
-            substeps = ['統一尺寸和位置']
-        
+        # ========== 步驟 6: 後處理 ==========
         await send_progress(websocket, {
             'type': 'step_start',
-            'step_id': 4,
-            'step_name': '最終處理',
+            'step_id': 6,
+            'step_name': '後處理',
             'step_progress': 0,
-            'overall_progress': 90,
-            'message': '📐 最終處理開始...',
-            'substeps': substeps
+            'overall_progress': (58 if is_photo else 52),
+            'substeps': ['白色轉透明', '統一尺寸和位置']
         })
         
-        # 子步驟 4.1: 統一尺寸
+        # 6.1 白色轉透明
         await send_progress(websocket, {
             'type': 'substep_start',
-            'step_id': 4,
+            'step_id': 6,
             'substep_id': 1,
-            'step_progress': 0,
-            'overall_progress': 90,
-            'message': f'📐 統一尺寸 | 目標: 1000x1000 | 來源: {result.width}x{result.height} | 頭部比例: 35%'
+            'overall_progress': (58 if is_photo else 52),
+            'message': '🎭 白色背景轉透明 | 方法: numpy連通區域分析 | 閾值: 240'
         })
         
-        for pct in range(0, 81, 20):
+        for pct in range(0, 101, 20):
             await send_progress(websocket, {
                 'type': 'substep_update',
-                'step_id': 4,
+                'step_id': 6,
                 'substep_id': 1,
-                'step_progress': pct * 0.7,
-                'overall_progress': 90 + pct * 0.05,
-                'message': f'📐 調整人物大小和位置... {pct}%'
+                'step_progress': pct * 0.5,
+                'overall_progress': (58 if is_photo else 52) + pct * 0.15,
+                'message': f'🎭 分析連通區域，保護人物內部白色... {pct}%'
             })
         
-        if is_photo:
-            # 子步驟 4.2: 底部裁切（僅真人照片）
+        result = style_converter.make_white_transparent(result)
+        
+        await send_progress(websocket, {
+            'type': 'substep_complete',
+            'step_id': 6,
+            'substep_id': 1,
+            'step_progress': 50,
+            'overall_progress': (73 if is_photo else 67),
+            'message': '✅ 透明背景處理完成'
+        })
+        
+        # 6.2 統一尺寸
+        await send_progress(websocket, {
+            'type': 'substep_start',
+            'step_id': 6,
+            'substep_id': 2,
+            'step_progress': 50,
+            'overall_progress': (73 if is_photo else 67),
+            'message': f'📐 統一尺寸和位置 | 目標: 1000x1000 | 頭部比例: 35% | 來源: {result.width}x{result.height}'
+        })
+        
+        for pct in range(0, 101, 20):
             await send_progress(websocket, {
-                'type': 'substep_start',
-                'step_id': 4,
+                'type': 'substep_update',
+                'step_id': 6,
                 'substep_id': 2,
-                'step_progress': 70,
-                'overall_progress': 94,
-                'message': '✂️ 水平底部裁切...'
+                'step_progress': 50 + pct * 0.5,
+                'overall_progress': (73 if is_photo else 67) + pct * 0.15,
+                'message': f'📐 調整人物大小和位置（人物高度70%，寬度85%）... {pct}%'
             })
-            
-            for pct in range(0, 101, 30):
-                await send_progress(websocket, {
-                    'type': 'substep_update',
-                    'step_id': 4,
-                    'substep_id': 2,
-                    'step_progress': 70 + pct * 0.3,
-                    'overall_progress': 94 + pct * 0.06,
-                    'message': f'✂️ numpy 裁切處理... {pct}%'
-                })
+        
+        result = style_converter.normalize_size_and_position(result, target_size=(1000, 1000))
         
         await send_progress(websocket, {
             'type': 'step_complete',
-            'step_id': 4,
+            'step_id': 6,
             'step_progress': 100,
-            'overall_progress': 100,
-            'message': f'✅ 最終處理完成 | 最終尺寸: 1000x1000 | 透明背景: 是 | 類型: {type_name}'
+            'overall_progress': (88 if is_photo else 82),
+            'message': f'✅ 步驟6完成 | 最終尺寸: {result.width}x{result.height} | 背景: 透明 | 人物位置: 頭部35% | 人物大小: 高70%寬85%'
         })
+        
+        # ========== 步驟 7: 照片特殊處理（僅照片）==========
+        if is_photo:
+            await send_progress(websocket, {
+                'type': 'step_start',
+                'step_id': 7,
+                'step_name': '照片特殊處理',
+                'step_progress': 0,
+                'overall_progress': 88,
+                'substeps': ['水平底部裁切']
+            })
+            
+            await send_progress(websocket, {
+                'type': 'substep_start',
+                'step_id': 7,
+                'substep_id': 1,
+                'overall_progress': 88,
+                'message': '✂️ 水平底部裁切 | 方法: numpy找中心區域最低點'
+            })
+            
+            for pct in range(0, 101, 25):
+                await send_progress(websocket, {
+                    'type': 'substep_update',
+                    'step_id': 7,
+                    'substep_id': 1,
+                    'step_progress': pct,
+                    'overall_progress': 88 + pct * 0.12,
+                    'message': f'✂️ 裁切底部多餘空間，保持平整邊緣... {pct}%'
+                })
+            
+            result = style_converter.crop_horizontal_bottom(result)
+            
+            await send_progress(websocket, {
+                'type': 'step_complete',
+                'step_id': 7,
+                'step_progress': 100,
+                'overall_progress': 100,
+                'message': f'✅ 步驟7完成 | 底部裁切: 已執行 | 方法: numpy中心區域分析 | 效果: 平整水平底邊 | 照片處理全部完成'
+            })
+        else:
+            # 插畫沒有步驟7，直接完成
+            await send_progress(websocket, {
+                'type': 'step_complete',
+                'step_id': 6,
+                'step_progress': 100,
+                'overall_progress': 100,
+                'message': '✅ 插畫處理全部完成'
+            })
         
         # 發送最終結果
         await send_progress(websocket, {
             'type': 'complete',
             'image': image_to_base64(result),
-            'message': f'✅ 處理完成！{type_name} → 向量插畫風格'
+            'message': f'🎉 完成！{type_name} → 向量插畫風格 | 最終尺寸: {result.width}x{result.height} | 透明背景'
         })
         
     except WebSocketDisconnect:
         print("客戶端斷開連接")
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         await websocket.send_json({
             'type': 'error',
             'message': f'處理失敗: {str(e)}'
         })
     finally:
-        await websocket.close()
+        try:
+            await websocket.close()
+        except:
+            pass
 
 
 if __name__ == "__main__":
@@ -431,9 +525,7 @@ if __name__ == "__main__":
     print("🚀 啟動圖片風格轉換工具（FastAPI 版本）")
     print("-" * 50)
     
-    # 自動尋找可用端口
     def find_free_port(start_port=8000):
-        """找到可用的端口"""
         port = start_port
         while port < start_port + 100:
             try:

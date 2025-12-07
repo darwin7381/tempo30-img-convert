@@ -123,6 +123,15 @@ uv run python main.py -i photo.jpg -q
 ## 注意事項
 
 - 需要有效的 Gemini API Key
-- 處理時間取決於圖片大小和 API 響應速度
+- 處理時間約 20-40 秒（AI 生成最耗時）
 - 建議使用高品質的輸入圖片以獲得最佳效果
+
+## 📚 文檔導覽
+
+- **README.md**（本文件）- 快速開始指南
+- **WORKFLOW_COMPLETE.md** - 完整處理流程分析（照片10步/插畫8步，實際執行順序）
+- **BODY_INSTRUCTIONS_ANALYSIS.md** - Body Instructions 設計分析（必要性、替代方案）
+- **TECHNICAL_NOTES.md** - 技術細節、API 配置、優化建議
+- **STYLE_DOCUMENTATION.md** - 風格設計規範、Prompt 模板
+- **UV_USAGE.md** - uv 包管理器使用指南
 
