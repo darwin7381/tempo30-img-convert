@@ -66,6 +66,7 @@ COMPONENT_REGISTRY = {
     # 風格
     "style": {
         "detailed": components.detailed_style_generate,
+        "universal_intelligent": components.universal_intelligent_generate,
     },
     
     # 背景
