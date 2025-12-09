@@ -664,3 +664,38 @@ def ai_generate_ink_style(image: Image.Image, context: dict) -> Image.Image:
 
 **細粒度 Pipeline 架構已完成，實現真正萬用的動態步驟顯示！** 🎉
 
+---
+
+## UX 改進：模擬進度
+
+### 問題
+
+**舊版體驗**：步驟卡在 0% → 突然跳到 100%
+
+**新版體驗**：步驟開始立即顯示進度 → 持續更新 → 完成時快速跳到 100%
+
+### 實現
+
+```python
+async def simulate_progress(websocket, step_id, total_steps, step_name):
+    """異步模擬進度更新"""
+    # AI 步驟：慢速（0.5秒/次，最高85%）
+    # 檢測步驟：中速（0.3秒/次，最高80%）
+    # 其他步驟：快速（0.2秒/次，最高90%）
+    
+    for pct in range(5, max_progress, 5):
+        await send_progress({'step_progress': pct})
+        await asyncio.sleep(sleep_time)
+```
+
+**結果**：
+- ✅ 用戶看到持續的進度更新
+- ✅ 不會感覺卡住
+- ✅ 更好的體驗
+
+詳見：`UX_IMPROVEMENT_PROGRESS.md`
+
+---
+
+**細粒度 Pipeline 架構 + 模擬進度 UX = 完美體驗！** 🎉
+

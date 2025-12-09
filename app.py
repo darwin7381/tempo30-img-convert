@@ -33,6 +33,48 @@ async def send_progress(websocket: WebSocket, data: dict):
     await asyncio.sleep(0.03)
 
 
+async def simulate_progress(websocket: WebSocket, step_id: int, total_steps: int, step_name: str):
+    """模擬步驟進度（在實際處理時顯示假進度）"""
+    try:
+        # 根據步驟類型決定進度速度
+        if "AI" in step_name or "生成" in step_name:
+            # AI 步驟：慢速進度（因為真的很慢）
+            max_progress = 85  # 只到 85%，留空間給完成時跳到 100%
+            sleep_time = 0.5   # 慢一點
+        elif "檢測" in step_name:
+            # 檢測步驟：中速進度
+            max_progress = 80
+            sleep_time = 0.3
+        else:
+            # 其他步驟：快速進度
+            max_progress = 90
+            sleep_time = 0.2
+        
+        # 立即發送第一個進度更新（不等待）
+        await send_progress(websocket, {
+            'type': 'step_update',
+            'step_id': step_id,
+            'step_progress': 5,
+            'overall_progress': ((step_id - 1) + 0.05) / total_steps * 100,
+            'message': f'⚙️ {step_name}處理中... 5%'
+        })
+        
+        # 繼續模擬進度更新
+        for pct in range(10, max_progress, 5):
+            await asyncio.sleep(sleep_time)
+            await send_progress(websocket, {
+                'type': 'step_update',
+                'step_id': step_id,
+                'step_progress': pct,
+                'overall_progress': ((step_id - 1) + pct / 100) / total_steps * 100,
+                'message': f'⚙️ {step_name}處理中... {pct}%'
+            })
+            
+    except asyncio.CancelledError:
+        # 實際處理完成，停止模擬
+        pass
+
+
 def format_result_detail(step: dict, result: any, image: Image.Image, context: dict) -> str:
     """萬用結果格式化"""
     step_name = step['name']
@@ -178,8 +220,30 @@ async def process_image_websocket(websocket: WebSocket):
                 # 記錄執行前的狀態
                 context['prev_size'] = f"{current_image.width}x{current_image.height}" if isinstance(current_image, Image.Image) else 'unknown'
                 
-                # 執行組件（萬用調用）
-                result = component(current_image, context)
+                # 立即發送第一個進度更新（5%）
+                await send_progress(websocket, {
+                    'type': 'step_update',
+                    'step_id': step_id,
+                    'step_progress': 5,
+                    'overall_progress': ((step_id - 1) + 0.05) / total_steps * 100,
+                    'message': f'⚙️ {step_name}處理中... 5%'
+                })
+                
+                # 啟動模擬進度（異步，從 10% 開始）
+                progress_task = asyncio.create_task(
+                    simulate_progress(websocket, step_id, total_steps, step_name)
+                )
+                
+                # 在執行器中運行組件（不阻塞事件循環，讓模擬進度能並行執行）
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(None, component, current_image, context)
+                
+                # 停止模擬進度
+                progress_task.cancel()
+                try:
+                    await progress_task
+                except asyncio.CancelledError:
+                    pass
                 
                 # 處理結果
                 if step.get('update_context') and isinstance(result, dict):
@@ -196,7 +260,17 @@ async def process_image_websocket(websocket: WebSocket):
                 # 格式化詳細結果
                 detail = format_result_detail(step, result_for_detail, current_image, context)
                 
-                # 步驟完成
+                # 快速推進到 95%（完成前的最後衝刺）
+                await send_progress(websocket, {
+                    'type': 'step_update',
+                    'step_id': step_id,
+                    'step_progress': 95,
+                    'overall_progress': ((step_id - 1) + 0.95) / total_steps * 100,
+                    'message': f'✅ {icon} {step_name}即將完成...'
+                })
+                await asyncio.sleep(0.1)
+                
+                # 步驟完成（跳到 100%）
                 progress_data = {
                     'type': 'step_complete',
                     'step_id': step_id,
