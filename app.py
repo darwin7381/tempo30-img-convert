@@ -341,22 +341,22 @@ if __name__ == "__main__":
         print(f"🌐 監聽: {host}")
     else:
         # 本地開發環境：自動尋找可用端口（從 8000 開始）
-    def find_free_port(start_port=8000):
-        port = start_port
-        while port < 65535:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.bind(('127.0.0.1', port))
-                return port
-            except OSError:
-                port += 1
-        raise RuntimeError("找不到可用端口")
-    
-    port = find_free_port(8000)
+        def find_free_port(start_port=8000):
+            port = start_port
+            while port < 65535:
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.bind(('127.0.0.1', port))
+                    return port
+                except OSError:
+                    port += 1
+            raise RuntimeError("找不到可用端口")
+        
+        port = find_free_port(8000)
         host = "127.0.0.1"
         print(f"🚀 啟動圖片風格轉換工具（本地開發環境）")
-    print(f"--------------------------------------------------")
-    print(f"📡 自動選擇端口: {port}")
+        print(f"--------------------------------------------------")
+        print(f"📡 自動選擇端口: {port}")
         print(f"🌐 訪問地址: http://{host}:{port}")
     
     print(f"--------------------------------------------------")
