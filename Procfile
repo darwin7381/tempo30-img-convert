@@ -1,2 +1,2 @@
-web: uvicorn app:app --host 0.0.0.0 --port $PORT
+web: uvicorn test_railway:app --host 0.0.0.0 --port $PORT
 
