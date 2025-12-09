@@ -204,7 +204,7 @@ async def process_image_websocket(websocket: WebSocket):
                         'message': f'⏭️ {icon} {step_name} | 跳過（不適用）'
                     })
                     continue
-            
+        
             # 步驟開始
             await send_progress(websocket, {
                 'type': 'step_start',
@@ -322,7 +322,7 @@ if __name__ == "__main__":
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.bind(('127.0.0.1', port))
-                    return port
+                return port
             except OSError:
                 port += 1
         raise RuntimeError("找不到可用端口")

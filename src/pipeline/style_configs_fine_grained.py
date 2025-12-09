@@ -99,12 +99,19 @@ I4_DETAILED_FINE = {
 
 UNIVERSAL_INTELLIGENT_FINE = {
     "name": "萬能智能版（細粒度）",
-    "description": "極簡流程，一次 AI 生成完成",
+    "description": "極簡流程，AI 萬能生成 + 透明背景",
     "steps": [
         {
             "name": "AI 萬能智能生成",
             "icon": "🎨",
             "component": fg.ai_generate_universal,
+            "update_image": True,
+            "show_image": True
+        },
+        {
+            "name": "白色轉透明",
+            "icon": "🌈",
+            "component": fg.make_white_transparent,
             "update_image": True,
             "show_image": True
         }
@@ -165,7 +172,7 @@ STYLE_OPTIONS = [
     {
         "id": "universal_intelligent",
         "name": "萬能智能版",
-        "description": "極簡流程（1步驟）",
+        "description": "極簡流程（2步驟：AI生成+透明背景）",
         "recommended": False
     },
     {

@@ -154,7 +154,7 @@ def build_full_prompt(image: Image.Image, context: dict) -> dict:
 
 
 def ai_generate_style(image: Image.Image, context: dict) -> Image.Image:
-    """步驟7：AI 生成向量插畫"""
+    """步驟7：AI 生成向量插畫（1K 正方形）"""
     import os
     from dotenv import load_dotenv
     load_dotenv()
@@ -176,7 +176,13 @@ def ai_generate_style(image: Image.Image, context: dict) -> Image.Image:
             prompt,
             types.Part.from_bytes(data=img_bytes, mime_type="image/png")
         ],
-        config=types.GenerateContentConfig(response_modalities=['TEXT', 'IMAGE'])
+        config=types.GenerateContentConfig(
+            response_modalities=['TEXT', 'IMAGE'],
+            image_config=types.ImageConfig(
+                aspect_ratio="1:1",  # 正方形
+                image_size="1K"      # 1024x1024
+            )
+        )
     )
     
     for part in response.candidates[0].content.parts:
@@ -187,7 +193,7 @@ def ai_generate_style(image: Image.Image, context: dict) -> Image.Image:
 
 
 def ai_generate_universal(image: Image.Image, context: dict) -> Image.Image:
-    """步驟7（萬能版）：AI 萬能智能生成"""
+    """步驟7（萬能版）：AI 萬能智能生成（1K 正方形）"""
     import os
     from dotenv import load_dotenv
     load_dotenv()
@@ -215,7 +221,13 @@ def ai_generate_universal(image: Image.Image, context: dict) -> Image.Image:
             UNIVERSAL_INTELLIGENT_PROMPT,
             types.Part.from_bytes(data=img_bytes, mime_type="image/png")
         ],
-        config=types.GenerateContentConfig(response_modalities=['TEXT', 'IMAGE'])
+        config=types.GenerateContentConfig(
+            response_modalities=['TEXT', 'IMAGE'],
+            image_config=types.ImageConfig(
+                aspect_ratio="1:1",  # 正方形
+                image_size="1K"      # 1024x1024
+            )
+        )
     )
     
     for part in response.candidates[0].content.parts:

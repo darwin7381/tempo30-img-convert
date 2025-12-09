@@ -49,6 +49,56 @@ BODY_INSTRUCTIONS = {
 
 STYLE_PROMPT_TEMPLATE = """Transform this photo into a VECTOR ILLUSTRATION in semi-realistic corporate avatar style.
 
+CRITICAL - THIS IS A STYLE FILTER APPLICATION, NOT IMAGE RECREATION (MANDATORY):
+
+DO NOT CREATE A NEW IMAGE. DO NOT REIMAGINE THE SUBJECT.
+This is ONLY applying a vector illustration art style to the existing photo.
+
+ABSOLUTE PRESERVATION REQUIREMENTS - ZERO TOLERANCE FOR CHANGES:
+
+1. FACIAL FEATURES (EXACT MATCH REQUIRED):
+   - EXACT eye shape, size, position, and direction of gaze
+   - EXACT nose shape, size, and angle
+   - EXACT mouth shape, expression, and position
+   - EXACT face shape, jawline, and chin
+   - EXACT eyebrow shape, position, and angle
+   - EXACT facial proportions and distances between features
+   - If they're smiling in the original, show the SAME smile
+   - If they have a neutral expression, keep it EXACTLY neutral
+
+2. HEAD AND BODY POSITION (EXACT MATCH REQUIRED):
+   - EXACT head tilt, rotation, and angle (left/right/forward/tilted)
+   - EXACT body orientation and posture
+   - EXACT shoulder position and angle
+   - EXACT viewing perspective (front/side/3-4 view)
+   - If the head is turned 30 degrees to the right, keep it EXACTLY 30 degrees
+   - If the shoulders are angled, keep the EXACT same angle
+
+3. HAIR AND PHYSICAL DETAILS (EXACT MATCH REQUIRED):
+   - EXACT hair length, volume, and flow direction
+   - EXACT hair part position (left/right/center)
+   - EXACT hairstyle and hair arrangement
+   - Preserve the EXACT way hair falls on shoulders or face
+
+4. SPATIAL COMPOSITION:
+   - EXACT camera angle and perspective
+   - EXACT subject position in frame
+   - EXACT body parts visible (what you see is what you transform)
+
+FORBIDDEN ACTIONS:
+❌ Changing head rotation or tilt
+❌ Changing facial expression
+❌ Changing eye direction or gaze
+❌ Changing any facial feature shapes
+❌ Changing body position or posture
+❌ Changing perspective or viewpoint
+❌ Adding or removing body parts beyond composition requirements
+
+THINK OF THIS AS: Taking the EXACT same photograph and running it through a "vector art style filter"
+The person should look IDENTICAL in every way except for the artistic rendering style.
+
+VERIFICATION: If someone who knows this person saw both images, they should immediately recognize it as the SAME photo, just in different art styles.
+
 {body_instruction}
 
 ARTISTIC STYLE:
@@ -228,6 +278,57 @@ Answer ONLY with "ILLUSTRATION" or "PHOTO", nothing else."""
 # ============================================================
 
 UNIVERSAL_INTELLIGENT_PROMPT = """Transform this image into a VECTOR ILLUSTRATION in semi-realistic corporate avatar style.
+
+CRITICAL - THIS IS A STYLE FILTER APPLICATION, NOT IMAGE RECREATION (MANDATORY):
+
+DO NOT CREATE A NEW IMAGE. DO NOT REIMAGINE THE SUBJECT.
+This is ONLY applying a vector illustration art style to the existing photo.
+
+ABSOLUTE PRESERVATION REQUIREMENTS - ZERO TOLERANCE FOR CHANGES:
+
+1. FACIAL FEATURES (EXACT MATCH REQUIRED):
+   - EXACT eye shape, size, position, and direction of gaze
+   - EXACT nose shape, size, and angle
+   - EXACT mouth shape, expression, and position
+   - EXACT face shape, jawline, and chin
+   - EXACT eyebrow shape, position, and angle
+   - EXACT facial proportions and distances between features
+   - If they're smiling in the original, show the SAME smile
+   - If they have a neutral expression, keep it EXACTLY neutral
+
+2. HEAD AND BODY POSITION (EXACT MATCH REQUIRED):
+   - EXACT head tilt, rotation, and angle (left/right/forward/tilted)
+   - EXACT body orientation and posture
+   - EXACT shoulder position and angle
+   - EXACT viewing perspective (front/side/3-4 view)
+   - If the head is turned 30 degrees to the right, keep it EXACTLY 30 degrees
+   - If the shoulders are angled, keep the EXACT same angle
+
+3. HAIR AND PHYSICAL DETAILS (EXACT MATCH REQUIRED):
+   - EXACT hair length, volume, and flow direction
+   - EXACT hair part position (left/right/center)
+   - EXACT hairstyle and hair arrangement
+   - Preserve the EXACT way hair falls on shoulders or face
+
+4. SPATIAL COMPOSITION:
+   - EXACT camera angle and perspective
+   - EXACT subject position in frame
+   - You may adjust body parts visibility for composition (crop/generate as instructed below)
+   - But maintain the EXACT pose and angle while doing so
+
+FORBIDDEN ACTIONS:
+❌ Changing head rotation or tilt
+❌ Changing facial expression
+❌ Changing eye direction or gaze
+❌ Changing any facial feature shapes
+❌ Changing body position or posture
+❌ Changing perspective or viewpoint
+❌ Adding or removing features
+
+THINK OF THIS AS: Taking the EXACT same photograph and running it through a "vector art style filter"
+The person should look IDENTICAL in every way except for the artistic rendering style.
+
+VERIFICATION: If someone who knows this person saw both images, they should immediately recognize it as the SAME photo, just in different art styles.
 
 CRITICAL - INTELLIGENT COMPOSITION HANDLING (MANDATORY):
 You must INTELLIGENTLY analyze the input image and adjust the composition to create a consistent HEAD TO UPPER CHEST portrait:
