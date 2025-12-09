@@ -13,11 +13,23 @@ import io
 import asyncio
 from pathlib import Path
 
-from src.pipeline.engine import run_pipeline, build_pipeline_from_names
-from src.pipeline.style_configs import PRESET_STYLES, STYLE_OPTIONS
+from src.gemini_client import GeminiClient, ImageType
+from src.image_processor import ImageProcessor
+from src.style_converter import StyleConverter
 
 
-app = FastAPI(title="圖片風格轉換工具（Pipeline 架構）")
+app = FastAPI(title="圖片風格轉換工具")
+
+gemini_client = None
+image_processor = ImageProcessor()
+style_converter = StyleConverter()
+
+
+def get_gemini_client():
+    global gemini_client
+    if gemini_client is None:
+        gemini_client = GeminiClient()
+    return gemini_client
 
 
 def image_to_base64(image: Image.Image) -> str:
@@ -37,12 +49,6 @@ async def get_index():
     return FileResponse(html_path)
 
 
-@app.get("/api/styles")
-async def get_styles():
-    """返回可用的風格列表"""
-    return {"styles": STYLE_OPTIONS}
-
-
 @app.websocket("/ws/process")
 async def process_image_websocket(websocket: WebSocket):
     await websocket.accept()
@@ -52,10 +58,6 @@ async def process_image_websocket(websocket: WebSocket):
         image_base64 = data['image'].split(',')[1]
         image_bytes = base64.b64decode(image_base64)
         image = Image.open(io.BytesIO(image_bytes))
-        
-        # 獲取選定的風格（預設為 i4_detailed）
-        selected_style = data.get('style', 'i4_detailed')
-        style_config = PRESET_STYLES.get(selected_style, PRESET_STYLES['i4_detailed'])
         
         # 發送原圖
         await send_progress(websocket, {
@@ -93,8 +95,8 @@ async def process_image_websocket(websocket: WebSocket):
                 'message': f'🤖 AI 分析圖片（類型+身體範圍）... {pct}%'
             })
         
-        # 使用 Pipeline 分析組件
-        analysis = style_config["analysis"](image)
+        # 實際調用（合併檢測）
+        analysis = style_converter.analyze_image(image)
         image_type = analysis["image_type"]
         body_extent = analysis["body_extent"]
         type_name = "真人照片" if image_type == "photo" else "像素插畫"
@@ -194,8 +196,7 @@ async def process_image_websocket(websocket: WebSocket):
                 'message': '📐 裁切平整底部 | 方法: numpy alpha分析'
             })
             
-            # 使用 Pipeline 預處理組件
-            processed = style_config["preprocess"](image, analysis)
+            processed = image_processor.process_image(image, ImageType.REAL_PHOTO)
             
             await send_progress(websocket, {
                 'type': 'step_complete',
@@ -224,8 +225,7 @@ async def process_image_websocket(websocket: WebSocket):
                 'message': '🔧 轉換圖片格式為 RGBA...'
             })
             
-            # 使用 Pipeline 預處理組件
-            processed = style_config["preprocess"](image, analysis)
+            processed = image_processor.process_image(image, ImageType.PIXEL_ART)
             
             await send_progress(websocket, {
                 'type': 'step_complete',
@@ -354,8 +354,9 @@ async def process_image_websocket(websocket: WebSocket):
             })
             await asyncio.sleep(0.15)
         
-        # 使用 Pipeline 風格生成組件
-        result = style_config["style"](processed, analysis)
+        # 實際調用（這裡會花費大部分時間）
+        # apply_style 內部會再次分析，但我們已經有結果了
+        result = style_converter.convert_to_cartoon_illustration(processed, body_extent=body_extent)
         
         # 5.3 提取圖片
         await send_progress(websocket, {
@@ -405,8 +406,7 @@ async def process_image_websocket(websocket: WebSocket):
                 'message': f'🎭 分析連通區域，保護人物內部白色... {pct}%'
             })
         
-        # 使用 Pipeline 背景組件
-        result = style_config["background"](result, analysis)
+        result = style_converter.make_white_transparent(result)
         
         await send_progress(websocket, {
             'type': 'substep_complete',
@@ -437,8 +437,7 @@ async def process_image_websocket(websocket: WebSocket):
                 'message': f'📐 調整人物大小和位置（人物高度70%，寬度85%）... {pct}%'
             })
         
-        # 使用 Pipeline 後處理組件
-        result = style_config["postprocess"](result, analysis)
+        result = style_converter.normalize_size_and_position(result, target_size=(1000, 1000))
         
         await send_progress(websocket, {
             'type': 'step_complete',
@@ -476,8 +475,8 @@ async def process_image_websocket(websocket: WebSocket):
                     'overall_progress': 88 + pct * 0.12,
                     'message': f'✂️ 裁切底部多餘空間，保持平整邊緣... {pct}%'
                 })
-        
-            # 底部裁切已整合到 normalize_1000 組件中
+            
+            result = style_converter.crop_horizontal_bottom(result)
             
             await send_progress(websocket, {
                 'type': 'step_complete',

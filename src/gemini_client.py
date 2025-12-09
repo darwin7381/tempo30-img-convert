@@ -45,7 +45,8 @@ class GeminiClient:
         只回答 REAL_PHOTO 或 PIXEL_ART，不要有其他文字。
         """
         
-        response = self.model.generate_content([prompt, image])
+        # Prompt 順序：圖片在前（符合 Gemini 最佳實踐）
+        response = self.model.generate_content([image, prompt])
         result = response.text.strip().upper()
         
         if "PIXEL" in result or "ART" in result:

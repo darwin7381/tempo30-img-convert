@@ -21,10 +21,10 @@ class StyleConfig:
 class APIConfig:
     """API 設定"""
     # 根據 Google Cloud 文檔（2025-12-06更新）
-    # https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/3-pro-image
+    # 圖片理解文檔：https://ai.google.dev/gemini-api/docs/image-understanding
+    # 圖片生成文檔：https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/3-pro-image
     model_image: str = "gemini-3-pro-image-preview"  # 圖片生成模型（發布：2025-11-20，最新）
-    model_text: str = "gemini-2.0-flash"  # 文本分析模型（知識截止：2024年8月）
-    # 註：Gemini 2.5 Flash 可能更新，但 2.0 已足夠穩定
+    model_text: str = "gemini-2.5-flash"  # 文本分析/圖片理解模型（2025年最新，增強的object detection和segmentation）
     max_retries: int = 3
     base_retry_delay: int = 60
     api_gateway_url: str = "https://api-gateway.cryptoxlab.workers.dev/api/openrouter/v1/chat/completions"

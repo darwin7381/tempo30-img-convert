@@ -354,8 +354,17 @@
     
     <div class="container">
         <!-- 左側：上傳區 -->
-        <div class="left-panel">
-            <h2 style="margin-bottom: 20px;">📤 上傳圖片</h2>
+            <div class="left-panel">
+                <h2 style="margin-bottom: 20px;">📤 上傳圖片</h2>
+                
+                <!-- 風格選擇 -->
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 10px; color: #00f2fe;">🎨 選擇風格</label>
+                    <select id="style-selector" style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3); font-size: 1rem;">
+                        <option value="i4_detailed">I4 詳細版（推薦）</option>
+                        <option value="i4_simplified">I4 簡化版（快速）</option>
+                    </select>
+                </div>
             
             <div class="upload-area" id="upload-area">
                 <div id="upload-placeholder">
@@ -537,7 +546,11 @@
             ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {
-                ws.send(JSON.stringify({ image: currentImage }));
+                const selectedStyle = document.getElementById('style-selector').value;
+                ws.send(JSON.stringify({ 
+                    image: currentImage,
+                    style: selectedStyle
+                }));
             };
             
             ws.onmessage = (event) => {
