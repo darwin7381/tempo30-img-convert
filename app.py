@@ -314,30 +314,44 @@ async def process_image_websocket(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     import socket
+    import os
     
-    # 自動尋找可用端口（從 8000 開始）
-    def find_free_port(start_port=8000):
-        port = start_port
-        while port < 65535:
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.bind(('127.0.0.1', port))
-                return port
-            except OSError:
-                port += 1
-        raise RuntimeError("找不到可用端口")
+    # 檢查是否在 Railway 或其他雲端環境（有 PORT 環境變數）
+    railway_port = os.getenv("PORT")
     
-    port = find_free_port(8000)
+    if railway_port:
+        # Railway 環境：使用環境變數的 PORT，監聽所有介面
+        port = int(railway_port)
+        host = "0.0.0.0"
+        print(f"🚀 啟動圖片風格轉換工具（Railway 生產環境）")
+        print(f"--------------------------------------------------")
+        print(f"📡 端口: {port}")
+        print(f"🌐 監聽: {host}")
+    else:
+        # 本地開發環境：自動尋找可用端口（從 8000 開始）
+        def find_free_port(start_port=8000):
+            port = start_port
+            while port < 65535:
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.bind(('127.0.0.1', port))
+                    return port
+                except OSError:
+                    port += 1
+            raise RuntimeError("找不到可用端口")
+        
+        port = find_free_port(8000)
+        host = "127.0.0.1"
+        print(f"🚀 啟動圖片風格轉換工具（本地開發環境）")
+        print(f"--------------------------------------------------")
+        print(f"📡 自動選擇端口: {port}")
+        print(f"🌐 訪問地址: http://{host}:{port}")
     
-    print(f"🚀 啟動圖片風格轉換工具（細粒度 Pipeline）")
-    print(f"--------------------------------------------------")
-    print(f"📡 自動選擇端口: {port}")
-    print(f"🌐 訪問地址: http://127.0.0.1:{port}")
     print(f"--------------------------------------------------")
     print(f"✨ 特點：")
     print(f"  - I4 詳細版：10 個細粒度步驟（照片）/ 8 個步驟（插畫）")
     print(f"  - 萬能智能版：1 個步驟（極簡流程）")
     print(f"  - 所有風格統一萬用邏輯")
     print(f"--------------------------------------------------")
-    uvicorn.run(app, host="127.0.0.1", port=port)
+    uvicorn.run(app, host=host, port=port)
 
