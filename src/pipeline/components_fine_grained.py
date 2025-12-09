@@ -8,15 +8,17 @@
 
 from PIL import Image
 import io
+import logging
 from google import genai
 from google.genai import types
 import numpy as np
 from scipy import ndimage
-from rembg import remove as rembg_remove
 
 from ..config import API_CONFIG
 from ..prompts import get_style_prompt, IMAGE_TYPE_PROMPT, BODY_EXTENT_PROMPT, UNIVERSAL_INTELLIGENT_PROMPT
 from ..utils import prepare_image_for_api
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -95,9 +97,15 @@ def detect_body_extent(image: Image.Image, context: dict) -> dict:
 def rembg_remove_background(image: Image.Image, context: dict) -> Image.Image:
     """步驟3：rembg 去背（僅照片）"""
     if context.get("image_type") == "photo":
+        # 延遲載入 rembg（避免在模組載入時就觸發模型下載）
+        logger.info("載入 rembg 模組進行去背...")
+        from rembg import remove as rembg_remove
+        
         if image.mode != "RGBA":
             image = image.convert("RGBA")
-        return rembg_remove(image)
+        result = rembg_remove(image)
+        logger.info("✅ 去背完成")
+        return result
     else:
         return image.convert("RGBA") if image.mode != "RGBA" else image
 

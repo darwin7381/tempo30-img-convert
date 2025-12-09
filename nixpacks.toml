@@ -5,8 +5,18 @@
 nixPkgs = ["python311", "libGL", "libglib", "libSM"]
 
 [phases.install]
-cmds = ["pip install --upgrade pip", "pip install -r requirements.txt"]
+cmds = [
+    "pip install --upgrade pip",
+    "pip install -r requirements.txt"
+]
+
+# 預下載 rembg 模型（避免首次啟動時下載）
+[phases.postInstall]
+cmds = [
+    "python -c 'print(\"預下載 rembg 模型...\")' || true",
+    "python -c 'from rembg import remove; print(\"rembg 模型載入成功\")' || true"
+]
 
 [start]
-cmd = "uvicorn app:app --host 0.0.0.0 --port $PORT"
+cmd = "uvicorn app:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 120"
 
