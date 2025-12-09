@@ -1,0 +1,12 @@
+# Railway Nixpacks 配置
+# 用於指定系統依賴和建置設定
+
+[phases.setup]
+nixPkgs = ["python311", "libGL", "libglib", "libSM"]
+
+[phases.install]
+cmds = ["pip install --upgrade pip", "pip install -r requirements.txt"]
+
+[start]
+cmd = "uvicorn app:app --host 0.0.0.0 --port $PORT"
+
