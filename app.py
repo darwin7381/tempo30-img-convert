@@ -15,42 +15,11 @@ import base64
 import io
 import asyncio
 from pathlib import Path
-import logging
 
-# 配置日誌
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# 延遲載入 style_configs（避免啟動時載入所有依賴）
-FINE_GRAINED_STYLES = None
-STYLE_OPTIONS = None
+from src.pipeline.style_configs_fine_grained import FINE_GRAINED_STYLES, STYLE_OPTIONS
 
 
 app = FastAPI(title="圖片風格轉換工具（細粒度 Pipeline）")
-
-
-@app.on_event("startup")
-async def startup_event():
-    """應用程式啟動事件：延遲載入配置"""
-    global FINE_GRAINED_STYLES, STYLE_OPTIONS
-    logger.info("🚀 應用程式啟動中...")
-    
-    try:
-        # 延遲載入（避免在 import 時就觸發 rembg 模型下載）
-        from src.pipeline.style_configs_fine_grained import (
-            FINE_GRAINED_STYLES as FG_STYLES,
-            STYLE_OPTIONS as ST_OPTIONS
-        )
-        FINE_GRAINED_STYLES = FG_STYLES
-        STYLE_OPTIONS = ST_OPTIONS
-        logger.info("✅ 風格配置載入成功")
-    except Exception as e:
-        logger.error(f"❌ 風格配置載入失敗: {e}")
-        # 即使失敗，也讓應用程式啟動（這樣健康檢查會通過）
-        FINE_GRAINED_STYLES = {}
-        STYLE_OPTIONS = []
-    
-    logger.info("✅ 應用程式啟動完成")
 
 
 @app.get("/health")

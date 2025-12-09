@@ -7,14 +7,9 @@ nixPkgs = ["python311", "libGL", "libglib", "libSM"]
 [phases.install]
 cmds = [
     "pip install --upgrade pip",
-    "pip install -r requirements.txt"
-]
-
-# 預下載 rembg 模型（避免首次啟動時下載）
-[phases.postInstall]
-cmds = [
-    "python -c 'print(\"預下載 rembg 模型...\")' || true",
-    "python -c 'from rembg import remove; print(\"rembg 模型載入成功\")' || true"
+    "pip install -r requirements.txt",
+    "echo '🔄 預下載 rembg AI 模型（176MB）...'",
+    "python -c 'from rembg import remove; from PIL import Image; import numpy as np; img = Image.fromarray(np.zeros((100,100,3), dtype=np.uint8)); remove(img); print(\"✅ rembg 模型預下載成功\")'"
 ]
 
 [start]

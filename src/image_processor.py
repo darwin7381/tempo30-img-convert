@@ -2,11 +2,9 @@
 
 from PIL import Image
 import numpy as np
-import logging
+from rembg import remove
 
 from .gemini_client import ImageType
-
-logger = logging.getLogger(__name__)
 
 
 class ImageProcessor:
@@ -23,23 +21,12 @@ class ImageProcessor:
         Returns:
             去背後的 RGBA 圖片
         """
-        # 延遲載入 rembg（避免在模組載入時就觸發模型下載）
-        try:
-            logger.info("載入 rembg 模組...")
-            from rembg import remove
-            logger.info("✅ rembg 載入成功")
-        except Exception as e:
-            logger.error(f"❌ rembg 載入失敗: {e}")
-            raise
-        
         # 確保圖片為 RGBA 模式
         if image.mode != "RGBA":
             image = image.convert("RGBA")
         
         # 使用 rembg 去背
-        logger.info("開始去背處理...")
         result = remove(image)
-        logger.info("✅ 去背完成")
         return result
     
     @staticmethod
